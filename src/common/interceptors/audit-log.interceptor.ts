@@ -29,43 +29,56 @@ export class AuditLogInterceptor implements NestInterceptor {
       return next.handle();
     }
 
-    const request = context.switchToHttp().getRequest<AuthenticatedRequest & {
-      requestContext?: RequestContext;
-    }>();
+    const request = context.switchToHttp().getRequest<
+      AuthenticatedRequest & {
+        requestContext?: RequestContext;
+      }
+    >();
 
     return next.handle().pipe(
-      tap(async () => {
+      tap(() => {
         if (!request.authUser) {
           return;
         }
 
-        const requestContext = request.requestContext;
-        const targetUserId = auditMetadata.targetUserParam
-          ? this.getParamValue(request.params, auditMetadata.targetUserParam)
-          : null;
-        const entityId = auditMetadata.entityIdParam
-          ? this.getParamValue(request.params, auditMetadata.entityIdParam)
-          : null;
-
-        await this.prisma.auditLog.create({
-          data: {
-            actorUserId: request.authUser.userId,
-            targetUserId,
-            module: auditMetadata.module,
-            action: auditMetadata.action,
-            entityType: auditMetadata.entityType,
-            entityId,
-            metadata: {
-              method: request.method,
-              path: request.originalUrl,
-              requestId: requestContext?.requestId ?? null,
-            },
-            ipAddress: requestContext?.ipAddress ?? null,
-            userAgent: requestContext?.userAgent ?? null,
-          },
-        });
+        void this.writeAuditLog(request, auditMetadata);
       }),
     );
+  }
+
+  private async writeAuditLog(
+    request: AuthenticatedRequest & { requestContext?: RequestContext },
+    auditMetadata: AuditActionMetadata,
+  ): Promise<void> {
+    if (!request.authUser) {
+      return;
+    }
+
+    const requestContext = request.requestContext;
+    const targetUserId = auditMetadata.targetUserParam
+      ? this.getParamValue(request.params, auditMetadata.targetUserParam)
+      : null;
+    const entityId = auditMetadata.entityIdParam
+      ? this.getParamValue(request.params, auditMetadata.entityIdParam)
+      : null;
+
+    await this.prisma.auditLog.create({
+      data: {
+        actorUserId: request.authUser.userId,
+        targetUserId,
+        module: auditMetadata.module,
+        action: auditMetadata.action,
+        entityType: auditMetadata.entityType,
+        entityId,
+        metadata: {
+          method: request.method,
+          path: request.originalUrl,
+          requestId: requestContext?.requestId ?? null,
+        },
+        ipAddress: requestContext?.ipAddress ?? null,
+        userAgent: requestContext?.userAgent ?? null,
+      },
+    });
   }
 
   private getParamValue(

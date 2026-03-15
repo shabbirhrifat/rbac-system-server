@@ -6,7 +6,10 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AccessControlService } from '../../access-control/access-control.service';
-import { REQUIRED_PERMISSIONS_KEY } from '../common.constants';
+import {
+  REQUIRED_ANY_PERMISSIONS_KEY,
+  REQUIRED_PERMISSIONS_KEY,
+} from '../common.constants';
 import type { AuthenticatedRequest } from '../../auth/auth.types';
 
 @Injectable()
@@ -21,8 +24,12 @@ export class PermissionGuard implements CanActivate {
       REQUIRED_PERMISSIONS_KEY,
       [context.getHandler(), context.getClass()],
     );
+    const requiredAnyPermissions = this.reflector.getAllAndOverride<string[]>(
+      REQUIRED_ANY_PERMISSIONS_KEY,
+      [context.getHandler(), context.getClass()],
+    );
 
-    if (!requiredPermissions?.length) {
+    if (!requiredPermissions?.length && !requiredAnyPermissions?.length) {
       return true;
     }
 
@@ -32,16 +39,27 @@ export class PermissionGuard implements CanActivate {
       throw new UnauthorizedException('Authentication required');
     }
 
-    const accessProfile = await this.accessControlService.getResolvedAccessProfile(
-      request.authUser.userId,
-    );
+    const accessProfile =
+      await this.accessControlService.getResolvedAccessProfile(
+        request.authUser.userId,
+      );
 
     if (!accessProfile) {
       throw new UnauthorizedException('User access profile not found');
     }
 
-    return requiredPermissions.every((permission) =>
-      accessProfile.permissions.all.includes(permission),
-    );
+    const satisfiesAllPermissions = requiredPermissions?.length
+      ? requiredPermissions.every((permission) =>
+          accessProfile.permissions.all.includes(permission),
+        )
+      : true;
+
+    const satisfiesAnyPermissions = requiredAnyPermissions?.length
+      ? requiredAnyPermissions.some((permission) =>
+          accessProfile.permissions.all.includes(permission),
+        )
+      : true;
+
+    return satisfiesAllPermissions && satisfiesAnyPermissions;
   }
 }

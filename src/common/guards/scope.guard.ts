@@ -35,6 +35,10 @@ export class ScopeGuard implements CanActivate {
       throw new UnauthorizedException('Authentication required');
     }
 
+    if (authUser.role === 'admin') {
+      return true;
+    }
+
     const targetUserId = this.extractTargetUserId(request.params);
 
     if (!targetUserId) {

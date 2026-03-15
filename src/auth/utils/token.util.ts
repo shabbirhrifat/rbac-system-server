@@ -45,12 +45,35 @@ export function extractCookieValue(
 
 export function getRefreshTokenFromRequest(request: Request): string | null {
   const cookieName = getRefreshCookieName();
-  const requestWithCookies = request as Request & {
-    cookies?: Record<string, string>;
-  };
-
-  return (
-    requestWithCookies.cookies?.[cookieName] ??
-    extractCookieValue(request.headers.cookie, cookieName)
+  const parsedCookieValue = getParsedCookieValue(
+    request as Request & {
+      cookies?: unknown;
+    },
+    cookieName,
   );
+
+  if (parsedCookieValue) {
+    return parsedCookieValue;
+  }
+
+  return extractCookieValue(request.headers.cookie, cookieName);
+}
+
+function getParsedCookieValue(
+  request: Request & { cookies?: unknown },
+  cookieName: string,
+): string | null {
+  const { cookies } = request;
+
+  if (!cookies || typeof cookies !== 'object') {
+    return null;
+  }
+
+  const cookieValue = (cookies as Record<string, unknown>)[cookieName];
+
+  if (typeof cookieValue !== 'string') {
+    return null;
+  }
+
+  return cookieValue;
 }
