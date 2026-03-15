@@ -1,7 +1,17 @@
 const { randomBytes, scryptSync } = require('node:crypto');
+const { PrismaPg } = require('@prisma/adapter-pg');
 const { PrismaClient, PermissionEffect, PermissionModule, PermissionType, UserStatus } = require('@prisma/client');
 
-const prisma = new PrismaClient();
+const databaseUrl =
+  process.env.DATABASE_URL ||
+  process.env.DIRECT_URL ||
+  'postgresql://postgres:postgres@localhost:5432/rbac?schema=public';
+
+const prisma = new PrismaClient({
+  adapter: new PrismaPg({
+    connectionString: databaseUrl,
+  }),
+});
 
 const roles = [
   { key: 'admin', name: 'Admin', level: 100 },
