@@ -18,6 +18,8 @@ This backend is now structured around the RBAC blueprint and currently includes:
 - `63796c8` `complete necessary middleware setup`
 - `ffd7698` `complete necessary users and access control setup`
 - `bb6bd47` `complete necessary dashboard leads tasks setup`
+- `4f8fd46` `complete necessary reports and audit logs setup`
+- `e1b6134` `complete necessary portal and settings setup`
 
 ## Implemented Module Status
 
@@ -31,10 +33,10 @@ This backend is now structured around the RBAC blueprint and currently includes:
 | `DashboardModule` | implemented | summary and recent activity endpoints |
 | `LeadsModule` | implemented | list, create, detail, update, status, assign, soft delete |
 | `TasksModule` | implemented | list, create, detail, update, status, assign, soft delete |
-| `ReportsModule` | scaffolded | no endpoints yet |
-| `AuditLogsModule` | scaffolded | no read endpoints yet |
-| `CustomerPortalModule` | scaffolded | no endpoints yet |
-| `SettingsModule` | scaffolded | no endpoints yet |
+| `ReportsModule` | implemented | overview, users, leads, and tasks report endpoints |
+| `AuditLogsModule` | implemented | filtered audit list and single audit log detail |
+| `CustomerPortalModule` | implemented | overview, profile, tasks, and activity self-service endpoints |
+| `SettingsModule` | implemented | profile settings and admin app settings endpoints |
 
 ## Runtime Infrastructure
 
@@ -177,6 +179,33 @@ All current auth routes live in `src/auth/auth.controller.ts`.
 - `PATCH /api/v1/tasks/:id/assign`: assign task to a scoped agent
 - `DELETE /api/v1/tasks/:id`: soft delete task
 
+### Reports endpoints
+
+- `GET /api/v1/reports/overview`: aggregate users, leads, and tasks report summary
+- `GET /api/v1/reports/users`: user-focused grouped report
+- `GET /api/v1/reports/leads`: lead-focused grouped report
+- `GET /api/v1/reports/tasks`: task-focused grouped report
+
+### Audit log endpoints
+
+- `GET /api/v1/audit-logs`: filtered paginated audit log list
+- `GET /api/v1/audit-logs/:id`: single audit log detail inside actor scope
+
+### Customer portal endpoints
+
+- `GET /api/v1/portal/overview`: self-service overview cards and recent activity
+- `GET /api/v1/portal/profile`: current customer profile
+- `PATCH /api/v1/portal/profile`: limited self profile update
+- `GET /api/v1/portal/tasks`: customer-visible tasks
+- `GET /api/v1/portal/activity`: customer-visible activity feed
+
+### Settings endpoints
+
+- `GET /api/v1/settings/profile`: personal settings payload
+- `PATCH /api/v1/settings/profile`: update personal profile and user settings
+- `GET /api/v1/settings/app`: list app settings for admins
+- `PATCH /api/v1/settings/app/:key`: update one app setting entry for admins
+
 ### Shared non-route responsibilities
 
 - `AccessControlService`: resolve role permissions + user overrides into effective access
@@ -184,6 +213,10 @@ All current auth routes live in `src/auth/auth.controller.ts`.
 - `DashboardService`: scoped summary counters and recent activity aggregation
 - `LeadsService`: scoped lead CRUD, status, assignment, and archive handling
 - `TasksService`: scoped task CRUD, status, assignment, and archive handling
+- `ReportsService`: grouped analytics for users, leads, and tasks
+- `AuditLogsService`: filtered audit retrieval inside role scope
+- `CustomerPortalService`: self-service overview, profile, task, and activity payloads
+- `SettingsService`: self profile settings and admin app settings management
 - `PrismaService`: Prisma 7 adapter-backed DB client
 - `ActorContextService`: reusable scope rules for admin, manager, agent, and customer access
 - `PermissionGuard`: action-level permission enforcement helper
@@ -253,15 +286,30 @@ getUser() {}
 | Tasks | `PATCH /api/v1/tasks/:id/status` | implemented |
 | Tasks | `PATCH /api/v1/tasks/:id/assign` | implemented |
 | Tasks | `DELETE /api/v1/tasks/:id` | implemented |
+| Reports | `GET /api/v1/reports/overview` | implemented |
+| Reports | `GET /api/v1/reports/users` | implemented |
+| Reports | `GET /api/v1/reports/leads` | implemented |
+| Reports | `GET /api/v1/reports/tasks` | implemented |
+| Audit Logs | `GET /api/v1/audit-logs` | implemented |
+| Audit Logs | `GET /api/v1/audit-logs/:id` | implemented |
+| Portal | `GET /api/v1/portal/overview` | implemented |
+| Portal | `GET /api/v1/portal/profile` | implemented |
+| Portal | `PATCH /api/v1/portal/profile` | implemented |
+| Portal | `GET /api/v1/portal/tasks` | implemented |
+| Portal | `GET /api/v1/portal/activity` | implemented |
+| Settings | `GET /api/v1/settings/profile` | implemented |
+| Settings | `PATCH /api/v1/settings/profile` | implemented |
+| Settings | `GET /api/v1/settings/app` | implemented |
+| Settings | `PATCH /api/v1/settings/app/:key` | implemented |
 
 ## What Is Not Implemented Yet
 
 The following API areas are still pending:
 
-- reports endpoints
-- audit log read endpoints
-- customer portal endpoints
-- settings endpoints
+- report export endpoint
+- richer audit log analytics filters or summaries
+- password change endpoint in settings
+- customer portal file/message extensions if needed
 
 ## Current Backend File Map
 
@@ -278,6 +326,14 @@ The following API areas are still pending:
 - `src/leads/leads.service.ts` - lead CRUD, assignment, and status logic
 - `src/tasks/tasks.controller.ts` - scoped task endpoints
 - `src/tasks/tasks.service.ts` - task CRUD, assignment, and status logic
+- `src/reports/reports.controller.ts` - analytics report endpoints
+- `src/reports/reports.service.ts` - grouped report aggregations
+- `src/audit-logs/audit-logs.controller.ts` - audit read endpoints
+- `src/audit-logs/audit-logs.service.ts` - scoped audit log filtering and detail reads
+- `src/customer-portal/customer-portal.controller.ts` - customer self-service endpoints
+- `src/customer-portal/customer-portal.service.ts` - customer overview, profile, tasks, and activity
+- `src/settings/settings.controller.ts` - settings endpoints
+- `src/settings/settings.service.ts` - personal and admin settings logic
 - `src/database/prisma.service.ts` - Prisma 7 runtime adapter setup
 - `src/common/common.module.ts` - shared infrastructure wiring
 - `src/common/guards/permission.guard.ts` - permission metadata guard
@@ -291,10 +347,10 @@ The following API areas are still pending:
 
 ## Recommended Next Build Order
 
-1. implement `ReportsModule`
-2. implement `AuditLogsModule`
-3. implement `CustomerPortalModule`
-4. implement `SettingsModule`
+1. add report export endpoint
+2. add password change flow in settings
+3. add richer audit filters and summaries
+4. add tests for critical auth and access flows
 
 ## Quick Start Commands
 
