@@ -16,6 +16,7 @@ export class AuditLogsService {
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
     const skip = (page - 1) * limit;
+    const orderBy = this.buildAuditOrderBy(query.sortBy, query.sortOrder);
 
     const where: Prisma.AuditLogWhereInput = {
       AND: [
@@ -40,7 +41,7 @@ export class AuditLogsService {
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         select: this.auditSelect,
       }),
       this.prisma.auditLog.count({ where }),
@@ -88,6 +89,24 @@ export class AuditLogsService {
     return {
       OR: [{ actorUserId }, { targetUserId: actorUserId }],
     };
+  }
+
+  private buildAuditOrderBy(
+    sortBy?: string,
+    sortOrder?: string,
+  ): Prisma.AuditLogOrderByWithRelationInput[] {
+    const direction = sortOrder?.toLowerCase() === 'asc' ? 'asc' : 'desc';
+
+    switch (sortBy) {
+      case 'module':
+        return [{ module: direction }, { createdAt: 'desc' }];
+      case 'action':
+        return [{ action: direction }, { createdAt: 'desc' }];
+      case 'createdAt':
+        return [{ createdAt: direction }];
+      default:
+        return [{ createdAt: 'desc' }];
+    }
   }
 
   private readonly auditSelect = {

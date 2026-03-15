@@ -25,6 +25,7 @@ export class LeadsService {
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
     const skip = (page - 1) * limit;
+    const orderBy = this.buildLeadOrderBy(query.sortBy, query.sortOrder);
 
     const where: Prisma.LeadWhereInput = {
       AND: [
@@ -42,6 +43,14 @@ export class LeadsService {
         query.assignedToUserId
           ? { assignedToUserId: query.assignedToUserId }
           : {},
+        query.from || query.to
+          ? {
+              createdAt: {
+                ...(query.from ? { gte: new Date(query.from) } : {}),
+                ...(query.to ? { lte: new Date(query.to) } : {}),
+              },
+            }
+          : {},
       ],
     };
 
@@ -50,7 +59,7 @@ export class LeadsService {
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         select: this.leadSelect,
       }),
       this.prisma.lead.count({ where }),
@@ -279,6 +288,32 @@ export class LeadsService {
       default:
         throw new BadRequestException('Unsupported lead status');
     }
+  }
+
+  private buildLeadOrderBy(
+    sortBy?: string,
+    sortOrder?: string,
+  ): Prisma.LeadOrderByWithRelationInput[] {
+    const direction = this.normalizeSortOrder(sortOrder);
+
+    switch (sortBy) {
+      case 'name':
+        return [{ name: direction }];
+      case 'company':
+        return [{ company: direction }];
+      case 'status':
+        return [{ status: direction }];
+      case 'updatedAt':
+        return [{ updatedAt: direction }];
+      case 'createdAt':
+        return [{ createdAt: direction }];
+      default:
+        return [{ createdAt: 'desc' }];
+    }
+  }
+
+  private normalizeSortOrder(sortOrder?: string): Prisma.SortOrder {
+    return sortOrder?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   }
 
   private readonly leadSelect = {

@@ -165,6 +165,37 @@ export class ReportsService {
     };
   }
 
+  async exportOverviewCsv(actorUserId: string, query: ReportsQueryDto) {
+    const overview = await this.getOverview(actorUserId, query);
+    const rows = [
+      ['group', 'key', 'count'],
+      ...overview.usersByStatus.map((item) => [
+        'usersByStatus',
+        String(item.status),
+        String(item._count._all),
+      ]),
+      ...overview.usersByRole.map((item) => [
+        'usersByRole',
+        String(item.roleKey ?? item.roleId),
+        String(item.count),
+      ]),
+      ...overview.leadsByStatus.map((item) => [
+        'leadsByStatus',
+        String(item.status),
+        String(item._count._all),
+      ]),
+      ...overview.tasksByStatus.map((item) => [
+        'tasksByStatus',
+        String(item.status),
+        String(item._count._all),
+      ]),
+    ];
+
+    return rows
+      .map((row) => row.map((value) => this.escapeCsvValue(value)).join(','))
+      .join('\n');
+  }
+
   private buildDateFilter(query: ReportsQueryDto) {
     if (!query.from && !query.to) {
       return undefined;
@@ -174,5 +205,13 @@ export class ReportsService {
       ...(query.from ? { gte: new Date(query.from) } : {}),
       ...(query.to ? { lte: new Date(query.to) } : {}),
     };
+  }
+
+  private escapeCsvValue(value: string): string {
+    if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+      return `"${value.replaceAll('"', '""')}"`;
+    }
+
+    return value;
   }
 }

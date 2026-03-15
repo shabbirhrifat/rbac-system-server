@@ -1,9 +1,10 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, Res, UseGuards } from '@nestjs/common';
 import { CurrentAuthUser } from '../auth/decorators/current-auth-user.decorator';
 import type { AuthenticatedRequestUser } from '../auth/auth.types';
 import { AccessTokenGuard } from '../auth/guards/access-token.guard';
 import { RequirePermissions } from '../common/decorators/require-permissions.decorator';
 import { PermissionGuard } from '../common/guards/permission.guard';
+import type { Response } from 'express';
 import { ReportsQueryDto } from './dto/reports-query.dto';
 import { ReportsService } from './reports.service';
 
@@ -46,5 +47,26 @@ export class ReportsController {
     @Query() query: ReportsQueryDto,
   ) {
     return this.reportsService.getTasksReport(authUser.userId, query);
+  }
+
+  @Get('export')
+  @RequirePermissions('reports.export')
+  async exportReport(
+    @CurrentAuthUser() authUser: AuthenticatedRequestUser,
+    @Query() query: ReportsQueryDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const csv = await this.reportsService.exportOverviewCsv(
+      authUser.userId,
+      query,
+    );
+
+    response.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    response.setHeader(
+      'Content-Disposition',
+      'attachment; filename="reports-overview.csv"',
+    );
+
+    return csv;
   }
 }

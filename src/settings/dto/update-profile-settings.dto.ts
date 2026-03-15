@@ -24,4 +24,12 @@ export class UpdateProfileSettingsDto {
   @IsOptional()
   @IsBoolean()
   sidebarCollapsed?: boolean;
+
+  @IsOptional()
+  @IsString()
+  currentPassword?: string;
+
+  @IsOptional()
+  @IsString()
+  newPassword?: string;
 }

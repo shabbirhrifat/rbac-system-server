@@ -1,9 +1,11 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { hashPassword, verifyPassword } from '../auth/utils/password.util';
 import { PrismaService } from '../database/prisma.service';
 import { UpdateAppSettingsDto } from './dto/update-app-settings.dto';
 import { UpdateProfileSettingsDto } from './dto/update-profile-settings.dto';
@@ -35,12 +37,15 @@ export class SettingsService {
   }
 
   async updateProfileSettings(userId: string, dto: UpdateProfileSettingsDto) {
+    const passwordHash = await this.resolvePasswordHash(userId, dto);
+
     return this.prisma.user.update({
       where: { id: userId },
       data: {
         firstName: dto.firstName?.trim(),
         lastName: dto.lastName?.trim(),
         phone: dto.phone?.trim() || undefined,
+        passwordHash,
         userSetting: {
           upsert: {
             create: {
@@ -142,5 +147,46 @@ export class SettingsService {
     if (user.role.key !== 'admin') {
       throw new ForbiddenException('App settings require admin access');
     }
+  }
+
+  private async resolvePasswordHash(
+    userId: string,
+    dto: UpdateProfileSettingsDto,
+  ): Promise<string | undefined> {
+    if (!dto.currentPassword && !dto.newPassword) {
+      return undefined;
+    }
+
+    if (!dto.currentPassword || !dto.newPassword) {
+      throw new BadRequestException(
+        'Both currentPassword and newPassword are required',
+      );
+    }
+
+    if (dto.newPassword.length < 8) {
+      throw new BadRequestException(
+        'newPassword must be at least 8 characters',
+      );
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { passwordHash: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const passwordMatches = await verifyPassword(
+      dto.currentPassword,
+      user.passwordHash,
+    );
+
+    if (!passwordMatches) {
+      throw new BadRequestException('Current password is incorrect');
+    }
+
+    return hashPassword(dto.newPassword);
   }
 }

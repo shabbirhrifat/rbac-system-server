@@ -26,6 +26,7 @@ export class UsersService {
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
     const skip = (page - 1) * limit;
+    const orderBy = this.buildUserOrderBy(query.sortBy, query.sortOrder);
 
     const where: Prisma.UserWhereInput = {
       AND: [
@@ -42,6 +43,14 @@ export class UsersService {
         query.status ? { status: this.parseUserStatus(query.status) } : {},
         query.role ? { role: { key: query.role.trim().toLowerCase() } } : {},
         query.managerId ? { managerId: query.managerId } : {},
+        query.from || query.to
+          ? {
+              createdAt: {
+                ...(query.from ? { gte: new Date(query.from) } : {}),
+                ...(query.to ? { lte: new Date(query.to) } : {}),
+              },
+            }
+          : {},
       ],
     };
 
@@ -50,7 +59,7 @@ export class UsersService {
         where,
         skip,
         take: limit,
-        orderBy: [{ createdAt: 'desc' }],
+        orderBy,
         select: this.userListSelect,
       }),
       this.prisma.user.count({ where }),
@@ -381,6 +390,34 @@ export class UsersService {
       default:
         throw new BadRequestException('Unsupported user status');
     }
+  }
+
+  private buildUserOrderBy(
+    sortBy?: string,
+    sortOrder?: string,
+  ): Prisma.UserOrderByWithRelationInput[] {
+    const direction = this.normalizeSortOrder(sortOrder);
+
+    switch (sortBy) {
+      case 'firstName':
+        return [{ firstName: direction }];
+      case 'lastName':
+        return [{ lastName: direction }];
+      case 'email':
+        return [{ email: direction }];
+      case 'status':
+        return [{ status: direction }];
+      case 'lastLoginAt':
+        return [{ lastLoginAt: direction }, { createdAt: 'desc' }];
+      case 'createdAt':
+        return [{ createdAt: direction }];
+      default:
+        return [{ createdAt: 'desc' }];
+    }
+  }
+
+  private normalizeSortOrder(sortOrder?: string): Prisma.SortOrder {
+    return sortOrder?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   }
 
   private readonly userListSelect = {

@@ -25,6 +25,7 @@ export class TasksService {
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
     const skip = (page - 1) * limit;
+    const orderBy = this.buildTaskOrderBy(query.sortBy, query.sortOrder);
 
     const where: Prisma.TaskWhereInput = {
       AND: [
@@ -49,6 +50,14 @@ export class TasksService {
         query.assignedToUserId
           ? { assignedToUserId: query.assignedToUserId }
           : {},
+        query.from || query.to
+          ? {
+              createdAt: {
+                ...(query.from ? { gte: new Date(query.from) } : {}),
+                ...(query.to ? { lte: new Date(query.to) } : {}),
+              },
+            }
+          : {},
       ],
     };
 
@@ -57,7 +66,7 @@ export class TasksService {
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         select: this.taskSelect,
       }),
       this.prisma.task.count({ where }),
@@ -320,6 +329,34 @@ export class TasksService {
       default:
         throw new BadRequestException('Unsupported task priority');
     }
+  }
+
+  private buildTaskOrderBy(
+    sortBy?: string,
+    sortOrder?: string,
+  ): Prisma.TaskOrderByWithRelationInput[] {
+    const direction = this.normalizeSortOrder(sortOrder);
+
+    switch (sortBy) {
+      case 'title':
+        return [{ title: direction }];
+      case 'status':
+        return [{ status: direction }];
+      case 'priority':
+        return [{ priority: direction }];
+      case 'dueAt':
+        return [{ dueAt: direction }, { createdAt: 'desc' }];
+      case 'updatedAt':
+        return [{ updatedAt: direction }];
+      case 'createdAt':
+        return [{ createdAt: direction }];
+      default:
+        return [{ createdAt: 'desc' }];
+    }
+  }
+
+  private normalizeSortOrder(sortOrder?: string): Prisma.SortOrder {
+    return sortOrder?.toLowerCase() === 'asc' ? 'asc' : 'desc';
   }
 
   private readonly taskSelect = {
