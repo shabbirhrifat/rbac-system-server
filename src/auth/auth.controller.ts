@@ -87,10 +87,7 @@ export class AuthController {
   @UseGuards(AccessTokenGuard)
   @Get('me')
   getCurrentUser(@CurrentAuthUser() authUser: AuthenticatedRequestUser) {
-    return this.authService.getCurrentUser(
-      authUser.userId,
-      authUser.sessionId,
-    );
+    return this.authService.getCurrentUser(authUser.userId, authUser.sessionId);
   }
 
   @Get('route-context')

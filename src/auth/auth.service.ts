@@ -192,7 +192,10 @@ export class AuthService {
     if (!userId && refreshToken) {
       try {
         const payload = await this.verifyRefreshTokenPayload(refreshToken);
-        const session = await this.validateRefreshSession(payload, refreshToken);
+        const session = await this.validateRefreshSession(
+          payload,
+          refreshToken,
+        );
         userId = session.userId;
         currentSessionId = session.id;
       } catch {
@@ -210,9 +213,8 @@ export class AuthService {
       };
     }
 
-    const accessProfile = await this.accessControlService.getResolvedAccessProfile(
-      userId,
-    );
+    const accessProfile =
+      await this.accessControlService.getResolvedAccessProfile(userId);
 
     if (!accessProfile || accessProfile.user.status !== UserStatus.ACTIVE) {
       return {
@@ -357,9 +359,8 @@ export class AuthService {
   private async requireResolvedAccessProfile(
     userId: string,
   ): Promise<ResolvedAccessProfile> {
-    const accessProfile = await this.accessControlService.getResolvedAccessProfile(
-      userId,
-    );
+    const accessProfile =
+      await this.accessControlService.getResolvedAccessProfile(userId);
 
     if (!accessProfile) {
       throw new UnauthorizedException('User not found');
@@ -373,9 +374,12 @@ export class AuthService {
     token: string,
   ): Promise<AccessTokenPayload> {
     try {
-      const payload = await this.jwtService.verifyAsync<AccessTokenPayload>(token, {
-        secret: getAccessTokenSecret(),
-      });
+      const payload = await this.jwtService.verifyAsync<AccessTokenPayload>(
+        token,
+        {
+          secret: getAccessTokenSecret(),
+        },
+      );
 
       if (payload.type !== 'access') {
         throw new UnauthorizedException('Invalid access token');
@@ -391,9 +395,12 @@ export class AuthService {
     token: string,
   ): Promise<RefreshTokenPayload> {
     try {
-      const payload = await this.jwtService.verifyAsync<RefreshTokenPayload>(token, {
-        secret: getRefreshTokenSecret(),
-      });
+      const payload = await this.jwtService.verifyAsync<RefreshTokenPayload>(
+        token,
+        {
+          secret: getRefreshTokenSecret(),
+        },
+      );
 
       if (payload.type !== 'refresh') {
         throw new UnauthorizedException('Invalid refresh token');

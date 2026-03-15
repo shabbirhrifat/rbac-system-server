@@ -1,4 +1,8 @@
-import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
+import {
+  randomBytes,
+  scrypt as scryptCallback,
+  timingSafeEqual,
+} from 'node:crypto';
 import { promisify } from 'node:util';
 
 const scrypt = promisify(scryptCallback);
@@ -20,7 +24,11 @@ export async function verifyPassword(
     return false;
   }
 
-  const derivedHash = (await scrypt(password, salt, PASSWORD_KEY_LENGTH)) as Buffer;
+  const derivedHash = (await scrypt(
+    password,
+    salt,
+    PASSWORD_KEY_LENGTH,
+  )) as Buffer;
   const currentHashBuffer = Buffer.from(currentHash, 'hex');
 
   if (derivedHash.length !== currentHashBuffer.length) {

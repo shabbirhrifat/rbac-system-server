@@ -7,9 +7,7 @@ const DEFAULT_DATABASE_URL =
 
 function getDatabaseUrl(): string {
   return (
-    process.env.DATABASE_URL ??
-    process.env.DIRECT_URL ??
-    DEFAULT_DATABASE_URL
+    process.env.DATABASE_URL ?? process.env.DIRECT_URL ?? DEFAULT_DATABASE_URL
   );
 }
 
