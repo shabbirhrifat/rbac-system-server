@@ -1,0 +1,287 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserStatus {
+  ACTIVE    @map("active")
+  SUSPENDED @map("suspended")
+  BANNED    @map("banned")
+}
+
+enum PermissionType {
+  PAGE   @map("page")
+  ACTION @map("action")
+}
+
+enum PermissionModule {
+  DASHBOARD   @map("dashboard")
+  USERS       @map("users")
+  PERMISSIONS @map("permissions")
+  LEADS       @map("leads")
+  TASKS       @map("tasks")
+  REPORTS     @map("reports")
+  AUDIT       @map("audit")
+  PORTAL      @map("portal")
+  SETTINGS    @map("settings")
+}
+
+enum PermissionEffect {
+  ALLOW @map("allow")
+  DENY  @map("deny")
+}
+
+enum LeadStatus {
+  NEW       @map("new")
+  CONTACTED @map("contacted")
+  QUALIFIED @map("qualified")
+  WON       @map("won")
+  LOST      @map("lost")
+}
+
+enum TaskStatus {
+  TODO        @map("todo")
+  IN_PROGRESS @map("in_progress")
+  DONE        @map("done")
+  CANCELLED   @map("cancelled")
+}
+
+enum TaskPriority {
+  LOW    @map("low")
+  MEDIUM @map("medium")
+  HIGH   @map("high")
+}
+
+model Role {
+  id              String           @id @default(uuid()) @db.Uuid
+  key             String           @unique
+  name            String
+  level           Int
+  isSystem        Boolean          @default(true) @map("is_system")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+  rolePermissions RolePermission[]
+  users           User[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id              String           @id @default(uuid()) @db.Uuid
+  key             String           @unique
+  module          PermissionModule
+  type            PermissionType
+  route           String?
+  label           String
+  description     String?
+  createdAt       DateTime         @default(now()) @map("created_at")
+  rolePermissions RolePermission[]
+  userPermissions UserPermission[]
+
+  @@index([module, type])
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String     @map("role_id") @db.Uuid
+  permissionId String     @map("permission_id") @db.Uuid
+  createdAt    DateTime   @default(now()) @map("created_at")
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model User {
+  id                         String           @id @default(uuid()) @db.Uuid
+  email                      String           @unique
+  passwordHash               String           @map("password_hash")
+  firstName                  String           @map("first_name")
+  lastName                   String           @map("last_name")
+  phone                      String?
+  roleId                     String           @map("role_id") @db.Uuid
+  managerId                  String?          @map("manager_id") @db.Uuid
+  status                     UserStatus       @default(ACTIVE)
+  permissionVersion          Int              @default(1) @map("permission_version")
+  mustChangePassword         Boolean          @default(false) @map("must_change_password")
+  lastLoginAt                DateTime?        @map("last_login_at")
+  createdBy                  String?          @map("created_by") @db.Uuid
+  createdAt                  DateTime         @default(now()) @map("created_at")
+  updatedAt                  DateTime         @updatedAt @map("updated_at")
+  suspendedAt                DateTime?        @map("suspended_at")
+  bannedAt                   DateTime?        @map("banned_at")
+  role                       Role             @relation(fields: [roleId], references: [id])
+  manager                    User?            @relation("ManagerToTeam", fields: [managerId], references: [id])
+  teamMembers                User[]           @relation("ManagerToTeam")
+  createdByUser              User?            @relation("UserCreator", fields: [createdBy], references: [id])
+  createdUsers               User[]           @relation("UserCreator")
+  permissionOverrides        UserPermission[] @relation("PermissionTarget")
+  grantedPermissionOverrides UserPermission[] @relation("PermissionGranter")
+  refreshSessions            RefreshSession[]
+  actorAuditLogs             AuditLog[]       @relation("AuditActor")
+  targetAuditLogs            AuditLog[]       @relation("AuditTarget")
+  managedLeads               Lead[]           @relation("LeadManager")
+  assignedLeads              Lead[]           @relation("LeadAssignee")
+  customerLeads              Lead[]           @relation("LeadCustomer")
+  createdLeads               Lead[]           @relation("LeadCreator")
+  updatedLeads               Lead[]           @relation("LeadUpdater")
+  assignedTasks              Task[]           @relation("TaskAssignee")
+  customerTasks              Task[]           @relation("TaskCustomer")
+  createdTasks               Task[]           @relation("TaskCreator")
+  updatedTasks               Task[]           @relation("TaskUpdater")
+  userSetting                UserSetting?
+  updatedAppSettings         AppSetting[]     @relation("AppSettingUpdater")
+
+  @@index([managerId, status])
+  @@index([roleId, status])
+  @@map("users")
+}
+
+model UserPermission {
+  id            String           @id @default(uuid()) @db.Uuid
+  userId        String           @map("user_id") @db.Uuid
+  permissionId  String           @map("permission_id") @db.Uuid
+  effect        PermissionEffect
+  grantedBy     String           @map("granted_by") @db.Uuid
+  createdAt     DateTime         @default(now()) @map("created_at")
+  expiresAt     DateTime?        @map("expires_at")
+  user          User             @relation("PermissionTarget", fields: [userId], references: [id], onDelete: Cascade)
+  permission    Permission       @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  grantedByUser User             @relation("PermissionGranter", fields: [grantedBy], references: [id])
+
+  @@unique([userId, permissionId])
+  @@index([grantedBy])
+  @@map("user_permissions")
+}
+
+model RefreshSession {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  tokenHash  String    @map("token_hash")
+  ipAddress  String?   @map("ip_address")
+  userAgent  String?   @map("user_agent")
+  expiresAt  DateTime  @map("expires_at")
+  revokedAt  DateTime? @map("revoked_at")
+  lastUsedAt DateTime? @map("last_used_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt, expiresAt])
+  @@map("refresh_sessions")
+}
+
+model LoginAttempt {
+  id              String    @id @default(uuid()) @db.Uuid
+  email           String?
+  ipAddress       String?   @map("ip_address")
+  attemptCount    Int       @default(1) @map("attempt_count")
+  windowStartedAt DateTime  @default(now()) @map("window_started_at")
+  lockedUntil     DateTime? @map("locked_until")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  @@index([email])
+  @@index([ipAddress])
+  @@map("login_attempts")
+}
+
+model AuditLog {
+  id         String    @id @default(uuid()) @db.Uuid
+  actorUserId String   @map("actor_user_id") @db.Uuid
+  targetUserId String? @map("target_user_id") @db.Uuid
+  module     String
+  action     String
+  entityType String    @map("entity_type")
+  entityId   String?   @map("entity_id") @db.Uuid
+  metadata   Json?
+  ipAddress  String?   @map("ip_address")
+  userAgent  String?   @map("user_agent")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  actorUser  User      @relation("AuditActor", fields: [actorUserId], references: [id])
+  targetUser User?     @relation("AuditTarget", fields: [targetUserId], references: [id])
+
+  @@index([actorUserId, createdAt])
+  @@index([module, createdAt])
+  @@map("audit_logs")
+}
+
+model Lead {
+  id               String     @id @default(uuid()) @db.Uuid
+  name             String
+  email            String?
+  phone            String?
+  company          String?
+  source           String?
+  status           LeadStatus @default(NEW)
+  managerId        String     @map("manager_id") @db.Uuid
+  assignedToUserId String?    @map("assigned_to_user_id") @db.Uuid
+  customerId       String?    @map("customer_id") @db.Uuid
+  notes            String?
+  createdBy        String     @map("created_by") @db.Uuid
+  updatedBy        String     @map("updated_by") @db.Uuid
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
+  deletedAt        DateTime?  @map("deleted_at")
+  manager          User       @relation("LeadManager", fields: [managerId], references: [id])
+  assignedToUser   User?      @relation("LeadAssignee", fields: [assignedToUserId], references: [id])
+  customer         User?      @relation("LeadCustomer", fields: [customerId], references: [id])
+  createdByUser    User       @relation("LeadCreator", fields: [createdBy], references: [id])
+  updatedByUser    User       @relation("LeadUpdater", fields: [updatedBy], references: [id])
+  tasks            Task[]
+
+  @@index([managerId, status])
+  @@index([assignedToUserId, status])
+  @@map("leads")
+}
+
+model Task {
+  id               String       @id @default(uuid()) @db.Uuid
+  title            String
+  description      String?
+  status           TaskStatus   @default(TODO)
+  priority         TaskPriority @default(MEDIUM)
+  dueAt            DateTime?    @map("due_at")
+  assignedToUserId String?      @map("assigned_to_user_id") @db.Uuid
+  leadId           String?      @map("lead_id") @db.Uuid
+  customerId       String?      @map("customer_id") @db.Uuid
+  createdBy        String       @map("created_by") @db.Uuid
+  updatedBy        String       @map("updated_by") @db.Uuid
+  completedAt      DateTime?    @map("completed_at")
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+  deletedAt        DateTime?    @map("deleted_at")
+  assignedToUser   User?        @relation("TaskAssignee", fields: [assignedToUserId], references: [id])
+  lead             Lead?        @relation(fields: [leadId], references: [id])
+  customer         User?        @relation("TaskCustomer", fields: [customerId], references: [id])
+  createdByUser    User         @relation("TaskCreator", fields: [createdBy], references: [id])
+  updatedByUser    User         @relation("TaskUpdater", fields: [updatedBy], references: [id])
+
+  @@index([assignedToUserId, status, dueAt])
+  @@index([leadId])
+  @@index([customerId])
+  @@map("tasks")
+}
+
+model UserSetting {
+  userId            String   @id @map("user_id") @db.Uuid
+  timezone          String?
+  locale            String?
+  sidebarCollapsed  Boolean  @default(false) @map("sidebar_collapsed")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_settings")
+}
+
+model AppSetting {
+  key           String   @id
+  value         Json
+  updatedBy     String?  @map("updated_by") @db.Uuid
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  updatedByUser User?    @relation("AppSettingUpdater", fields: [updatedBy], references: [id])
+
+  @@map("app_settings")
+}
