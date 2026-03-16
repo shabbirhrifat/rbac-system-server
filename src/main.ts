@@ -8,6 +8,12 @@ import { PrismaService } from './database/prisma.service';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.setGlobalPrefix('api/v1');
+
+  app.enableCors({
+    origin: process.env.FRONTEND_ORIGIN ?? 'http://localhost:3000',
+    credentials: true,
+  });
+
   app.use(cookieParser());
   app.useGlobalPipes(
     new ValidationPipe({
